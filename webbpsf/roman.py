@@ -229,6 +229,8 @@ def _load_wfi_detector_aberrations(filename):
 
 class RomanInstrument(webbpsf_core.SpaceTelescopeInstrument):
     PUPIL_RADIUS = 2.4 / 2.0
+    wavelength = 1e-6
+    LAMBDA_D = wavelength/(2*PUPIL_RADIUS)
     """
     RomanInstrument contains data and functionality common to Roman
     instruments, such as setting the pupil shape
@@ -676,6 +678,9 @@ class CGI(RomanInstrument):
             raise ValueError("Instrument {0} doesn't have a filter called {1}.".format(self.name, value))
         self._filter = value
 
+    def create_dm1(self, nbactuator=48):
+        self.dm1 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing= self.PUPIL_RADIUS/nbactuator, radius= self.PUPIL_RADIUS)
+
     @property
     def apodizer(self):
         """Currently selected apodizer name"""
@@ -799,6 +804,9 @@ class CGI(RomanInstrument):
 
         # Add the shaped pupil apodizer
         optsys.add_pupil(transmission=self._apodizer_fname, name=self.apodizer, shift=None)
+
+        # Add the dm1
+        optsys.add_pupil(self.dm1)
 
         # Add the FPM
         optsys.add_image(transmission=self._fpm_fname, name=self.fpm)
