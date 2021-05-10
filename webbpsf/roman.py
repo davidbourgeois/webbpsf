@@ -229,8 +229,6 @@ def _load_wfi_detector_aberrations(filename):
 
 class RomanInstrument(webbpsf_core.SpaceTelescopeInstrument):
     PUPIL_RADIUS = 2.4 / 2.0
-    wavelength = 1e-6
-    LAMBDA_D = wavelength/(2*PUPIL_RADIUS)
     """
     RomanInstrument contains data and functionality common to Roman
     instruments, such as setting the pupil shape
