@@ -601,6 +601,7 @@ class CGI(RomanInstrument):
     def __init__(self, mode=None, pixelscale=None, fov_arcsec=None, apply_static_opd=False):
         super(CGI, self).__init__("CGI", pixelscale=pixelscale)
 
+        self.create_dm1()
         self._detector_npixels = 1024
         self._detectors = {camera: 'placeholder' for camera in self.camera_list}
 
