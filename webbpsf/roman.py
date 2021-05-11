@@ -589,7 +589,7 @@ class CGI(RomanInstrument):
     camera_list = ['IMAGER', 'IFS']
     filter_list = ['F660', 'F721', 'F770', 'F890']
     apodizer_list = ['CHARSPC', 'DISKSPC']
-    fpm_list = ['CHARSPC_F660_BOWTIE', 'CHARSPC_F770_BOWTIE', 'CHARSPC_F890_BOWTIE', 'DISKSPC_F721_ANNULUS']
+    fpm_list = ['CHARSPC_F660_BOWTIE', 'CHARSPC_F770_BOWTIE', 'CHARSPC_F890_BOWTIE', 'DISKSPC_F721_ANNULUS', "OFF"]
     lyotstop_list = ['LS30D88']
 
     _mode_table = {  # MODE             CAMERA    FILTER  APODIZER   FPM             LYOT STOP
@@ -805,10 +805,11 @@ class CGI(RomanInstrument):
         optsys.add_pupil(transmission=self._apodizer_fname, name=self.apodizer, shift=None)
 
         # Add the dm1
-        optsys.add_pupil(self.dm1)
+        optsys.add_pupil(self.dm1, name="DM1")
 
         # Add the FPM
-        optsys.add_image(transmission=self._fpm_fname, name=self.fpm)
+        if (self._fpm!="OFF"):
+            optsys.add_image(transmission=self._fpm_fname, name=self.fpm)
 
         # Add Lyot stop
         self.pupil_mask = self.lyotstop
@@ -853,3 +854,59 @@ class CGI(RomanInstrument):
                              comment='Lyot stop pixel scale in m/pixel')
         result[0].header.set('PUPLDIAM', lyotstop_hdr['PUPLDIAM'],
                              comment='Lyot stop array size, incl padding.')
+
+    def circle_mask(self, im=None, rad=None):
+        """Create a circular aperture  with radius rad."""
+        xc = len(im) / 2
+        yc = len(im) / 2
+        x, y = np.shape(im)
+        newy, newx = np.mgrid[:y, :x]
+        circ = (newx - xc) ** 2 + (newy - yc) ** 2 < rad ** 2
+
+        return circ.astype('float')
+
+    def section(self, im=None, angle=None):
+        """Generate an angular section"""
+        x, y = np.shape(im)
+        xc = len(im) / 2
+        yc = len(im) / 2
+        newy, newx = np.mgrid[:y, :x]
+        section = np.abs((newy - yc) / (newx - xc)) < np.arctan(angle)
+
+        return section.astype('float')
+
+    def SPC_contrast(self, PSF_raw=None):
+
+        if(PSF_raw==None):
+            PSF_raw = self
+
+        #PSF_raw.display()
+        #self.display()
+
+        PSF_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
+        PSF_raw_fit = PSF_raw.calc_psf(nlambda=1, fov_arcsec=1.6)
+
+        # Get some header useful data #TODO get variable more higher
+        header = PSF_corona_fit[0].header
+        pix_scale = header[11]
+        lambdaD_scale = header[8]
+        lambdaD_pix_scale = lambdaD_scale / pix_scale
+
+        PSF_corona_data = PSF_corona_fit[0].data
+        PSF_raw_data = PSF_raw_fit[0].data
+
+        # Generate an sectionnal annulus mask
+        inner_rad = 3*lambdaD_pix_scale
+        outer_rad = 9*lambdaD_pix_scale
+
+        IWA = self.circle_mask(im=PSF_corona_data, rad=3*inner_rad)
+        OWA = self.circle_mask(im=PSF_corona_data, rad=9*outer_rad)
+        WA = OWA - IWA
+        WA *= self.section(PSF_corona_data, 50 * np.pi / 180)
+
+        # Compute instrumental contrast
+        contrast = PSF_corona_data * WA
+        norm = np.max(WA * PSF_raw_data)
+        contrast_norm = (contrast / norm)
+
+        return np.mean(contrast_norm[np.where(contrast_norm != 0)])
