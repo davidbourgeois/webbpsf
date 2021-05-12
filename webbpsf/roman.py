@@ -633,6 +633,11 @@ class CGI(RomanInstrument):
         else:
             self.mode = mode
 
+    def copy(self):
+        """ Make a copy of a wavefront object """
+        from copy import deepcopy
+        return deepcopy(self)
+
     @property
     def camera(self):
         """Currently selected camera name"""
@@ -855,6 +860,14 @@ class CGI(RomanInstrument):
         result[0].header.set('PUPLDIAM', lyotstop_hdr['PUPLDIAM'],
                              comment='Lyot stop array size, incl padding.')
 
+    def raw_PSF(self, nbactuator=48):
+            PSF_raw = self.copy()
+            PSF_raw.fpm = "OFF"
+            for i in range (nbactuator):
+                i
+
+
+
     def circle_mask(self, im=None, rad=None):
         """Create a circular aperture  with radius rad."""
         xc = len(im) / 2
@@ -878,9 +891,9 @@ class CGI(RomanInstrument):
     def SPC_contrast(self, PSF_raw=None):
 
         if(PSF_raw==None):
-            PSF_raw = self
+            PSF_raw = self.raw_PSF()
 
-        #PSF_raw.display()
+        PSF_raw.display()
         #self.display()
 
         PSF_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
