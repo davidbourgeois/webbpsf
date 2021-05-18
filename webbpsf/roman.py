@@ -863,10 +863,10 @@ class CGI(RomanInstrument):
     def raw_PSF(self, nbactuator=48):
             PSF_raw = self.copy()
             PSF_raw.fpm = "OFF"
-            for i in range (nbactuator):
-                i
-
-
+            for i in range(nbactuator):
+                for j in range(nbactuator):
+                    PSF_raw.dm1.set_actuator(i, j, 0)
+            return PSF_raw
 
     def circle_mask(self, im=None, rad=None):
         """Create a circular aperture  with radius rad."""
@@ -888,38 +888,53 @@ class CGI(RomanInstrument):
 
         return section.astype('float')
 
-    def SPC_contrast(self, PSF_raw=None):
+    def working_area(self, im=None, inner_rad=3, outer_rad=9):
+        inner_rad *= self.lambdaD_pix_scale
+        outer_rad *= self.lambdaD_pix_scale
+
+        IWA = self.circle_mask(im=im, rad=inner_rad)
+        OWA = self.circle_mask(im=im, rad=outer_rad)
+        self.WA = OWA - IWA
+        if (self._fpm!="DISKSPC_F721_ANNULUS"):
+            self.WA *= self.section(im, 50 * np.pi / 180)
+
+    def contrast(self, PSF_raw=None, display=True):
+
+        """Compute the constrast of coronagraphic PSF in working area (WA) betwin inner area (INA) and outer area (OWA)
+        computed with their respectifs radius (inner_rad, outer_rad)  in lambda/Diameter units"""
 
         if(PSF_raw==None):
             PSF_raw = self.raw_PSF()
-
-        PSF_raw.display()
-        #self.display()
 
         PSF_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
         PSF_raw_fit = PSF_raw.calc_psf(nlambda=1, fov_arcsec=1.6)
 
         # Get some header useful data #TODO get variable more higher
         header = PSF_corona_fit[0].header
+        npix = header[3]
         pix_scale = header[11]
         lambdaD_scale = header[8]
-        lambdaD_pix_scale = lambdaD_scale / pix_scale
+        self.lambdaD_pix_scale = lambdaD_scale / pix_scale
 
         PSF_corona_data = PSF_corona_fit[0].data
         PSF_raw_data = PSF_raw_fit[0].data
 
-        # Generate an sectionnal annulus mask
-        inner_rad = 3*lambdaD_pix_scale
-        outer_rad = 9*lambdaD_pix_scale
-
-        IWA = self.circle_mask(im=PSF_corona_data, rad=3*inner_rad)
-        OWA = self.circle_mask(im=PSF_corona_data, rad=9*outer_rad)
-        WA = OWA - IWA
-        WA *= self.section(PSF_corona_data, 50 * np.pi / 180)
+        self.working_area(im=PSF_corona_data)
 
         # Compute instrumental contrast
-        contrast = PSF_corona_data * WA
-        norm = np.max(WA * PSF_raw_data)
+        contrast = PSF_corona_data * self.WA
+        norm = np.max(PSF_raw_data)
         contrast_norm = (contrast / norm)
+
+        if (display == True):
+            import matplotlib.pyplot as plt
+            from matplotlib.colors import LogNorm
+            from matplotlib import colors, ticker, cm
+
+            scale = pix_scale * int(npix / 2)
+            plt.imshow(contrast_norm,  norm = LogNorm(), cmap = 'inferno', extent=[-scale,scale,-scale,scale])
+            plt.xlabel('arcsec')
+            plt.ylabel('arcsec')
+            plt.colorbar()
 
         return np.mean(contrast_norm[np.where(contrast_norm != 0)])
