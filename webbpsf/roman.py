@@ -722,7 +722,7 @@ class CGI(RomanInstrument):
                 os.path.join(self._datapath,
                              "optics/DISKSPC_FPM_65WA200_360deg_-_FP1res{0:d}_evensamp_D{1:03d}_{2:s}.fits.gz".format(
                                  self._fpmres, 2 * self._Mfpm, self.filter))
-        else:
+        elif(value!='OFF'):
             self._fpmres = 4
             self._owa = 9.
             self._Mfpm = int(np.ceil(self._fpmres * self._owa))
