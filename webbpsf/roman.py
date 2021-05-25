@@ -11,6 +11,9 @@ WARNING: This model has not yet been validated against other PSF
 import os.path
 import poppy
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+from matplotlib import colors, ticker, cm
 from . import webbpsf_core
 from scipy.interpolate import griddata
 from astropy.io import fits
@@ -927,10 +930,6 @@ class CGI(RomanInstrument):
         contrast_norm = (contrast / norm)
 
         if (display == True):
-            import matplotlib.pyplot as plt
-            from matplotlib.colors import LogNorm
-            from matplotlib import colors, ticker, cm
-
             scale = pix_scale * int(npix / 2)
             plt.imshow(contrast_norm,  norm = LogNorm(), cmap = 'inferno', extent=[-scale,scale,-scale,scale])
             plt.xlabel('arcsec')
