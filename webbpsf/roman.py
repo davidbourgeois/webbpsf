@@ -866,9 +866,7 @@ class CGI(RomanInstrument):
     def raw_PSF(self, nbactuator=48):
             PSF_raw = self.copy()
             PSF_raw.fpm = "OFF"
-            for i in range(nbactuator):
-                for j in range(nbactuator):
-                    PSF_raw.dm1.set_actuator(i, j, 0)
+            PSF_raw.dm1.flatten()
             return PSF_raw
 
     def circle_mask(self, im=None, rad=None):
