@@ -601,10 +601,11 @@ class CGI(RomanInstrument):
         'CHARSPC_F890': ('IFS', 'F890', 'CHARSPC', 'CHARSPC_F890_BOWTIE', 'LS30D88'),
         'DISKSPC_F721': ('IMAGER', 'F721', 'DISKSPC', 'DISKSPC_F721_ANNULUS', 'LS30D88')}
 
-    def __init__(self, mode=None, pixelscale=None, fov_arcsec=None, apply_static_opd=False):
+    def __init__(self, mode=None, pixelscale=None, fov_arcsec=None, apply_static_opd=False , nbactuator=48):
         super(CGI, self).__init__("CGI", pixelscale=pixelscale)
 
-        self.create_dm1()
+        self.create_dm1(nbactuator)
+        
         self._detector_npixels = 1024
         self._detectors = {camera: 'placeholder' for camera in self.camera_list}
 
@@ -685,7 +686,7 @@ class CGI(RomanInstrument):
             raise ValueError("Instrument {0} doesn't have a filter called {1}.".format(self.name, value))
         self._filter = value
 
-    def create_dm1(self, nbactuator=48):
+    def create_dm1(self, nbactuator):
         self.dm1 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing= self.PUPIL_RADIUS/nbactuator, radius= self.PUPIL_RADIUS)
 
     @property
@@ -863,7 +864,7 @@ class CGI(RomanInstrument):
         result[0].header.set('PUPLDIAM', lyotstop_hdr['PUPLDIAM'],
                              comment='Lyot stop array size, incl padding.')
 
-    def raw_PSF(self, nbactuator=48):
+    def raw_PSF(self):
             PSF_raw = self.copy()
             PSF_raw.fpm = "OFF"
             PSF_raw.dm1.flatten()
@@ -890,6 +891,14 @@ class CGI(RomanInstrument):
         return section.astype('float')
 
     def working_area(self, im=None, inner_rad=3, outer_rad=9):
+        # Get some header useful data
+        #TODO get variable more higher
+        PSF_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
+        header = PSF_corona_fit[0].header
+        pix_scale = header[11]
+        lambdaD_scale = header[8]
+        self.lambdaD_pix_scale = lambdaD_scale / pix_scale
+
         inner_rad *= self.lambdaD_pix_scale
         outer_rad *= self.lambdaD_pix_scale
 
@@ -910,13 +919,6 @@ class CGI(RomanInstrument):
         PSF_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
         PSF_raw_fit = PSF_raw.calc_psf(nlambda=1, fov_arcsec=1.6)
 
-        # Get some header useful data #TODO get variable more higher
-        header = PSF_corona_fit[0].header
-        npix = header[3]
-        pix_scale = header[11]
-        lambdaD_scale = header[8]
-        self.lambdaD_pix_scale = lambdaD_scale / pix_scale
-
         PSF_corona_data = PSF_corona_fit[0].data
         PSF_raw_data = PSF_raw_fit[0].data
 
@@ -928,6 +930,12 @@ class CGI(RomanInstrument):
         contrast_norm = (contrast / norm)
 
         if (display == True):
+            # Get some header useful data
+            #TODO get variable more higher
+            header = PSF_corona_fit[0].header
+            npix = header[3]
+            pix_scale = header[11]
+
             scale = pix_scale * int(npix / 2)
             plt.imshow(contrast_norm,  norm = LogNorm(), cmap = 'inferno', extent=[-scale,scale,-scale,scale])
             plt.xlabel('arcsec')
