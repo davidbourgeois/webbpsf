@@ -909,7 +909,7 @@ class CGI(RomanInstrument):
         if (self._fpm!="DISKSPC_F721_ANNULUS"):
             self.WA *= self.section(im, 50 * np.pi / 180)
 
-    def raw_contrast(self, PSF_raw=None, display=True):
+    def raw_contrast(self, PSF_raw=None, display=False):
 
         """Compute the constrast of coronagraphic PSF in working area (WA) betwin inner area (INA) and outer area (OWA)
         computed with their respectifs radius (inner_rad, outer_rad)  in lambda/Diameter units"""
