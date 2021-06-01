@@ -604,6 +604,7 @@ class CGI(RomanInstrument):
     def __init__(self, mode=None, pixelscale=None, fov_arcsec=None, apply_static_opd=False , nbactuator=48):
         super(CGI, self).__init__("CGI", pixelscale=pixelscale)
 
+        self.nbactuator = nbactuator
         self.create_dm1(nbactuator)
         
         self._detector_npixels = 1024
