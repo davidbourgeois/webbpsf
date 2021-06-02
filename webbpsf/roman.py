@@ -15,10 +15,12 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib import colors, ticker, cm
 from . import webbpsf_core
+from . import utils
 from scipy.interpolate import griddata
 from astropy.io import fits
 import astropy.units as u
 import logging
+
 
 _log = logging.getLogger('webbpsf')
 import pprint
@@ -871,26 +873,6 @@ class CGI(RomanInstrument):
             PSF_raw.dm1.flatten()
             return PSF_raw
 
-    def circle_mask(self, im=None, rad=None):
-        """Create a circular aperture  with radius rad."""
-        xc = len(im) / 2
-        yc = len(im) / 2
-        x, y = np.shape(im)
-        newy, newx = np.mgrid[:y, :x]
-        circ = (newx - xc) ** 2 + (newy - yc) ** 2 < rad ** 2
-
-        return circ.astype('float')
-
-    def section(self, im=None, angle=None):
-        """Generate an angular section"""
-        x, y = np.shape(im)
-        xc = len(im) / 2
-        yc = len(im) / 2
-        newy, newx = np.mgrid[:y, :x]
-        section = np.abs((newy - yc) / (newx - xc)) < np.arctan(angle)
-
-        return section.astype('float')
-
     def working_area(self, im=None, inner_rad=3, outer_rad=9):
         # Get some header useful data
         #TODO get variable more higher
@@ -903,11 +885,11 @@ class CGI(RomanInstrument):
         inner_rad *= self.lambdaD_pix_scale
         outer_rad *= self.lambdaD_pix_scale
 
-        IWA = self.circle_mask(im=im, rad=inner_rad)
-        OWA = self.circle_mask(im=im, rad=outer_rad)
+        IWA = utils.circle_mask(im=im, rad=inner_rad)
+        OWA = utils.circle_mask(im=im, rad=outer_rad)
         self.WA = OWA - IWA
         if (self._fpm!="DISKSPC_F721_ANNULUS"):
-            self.WA *= self.section(im, 50 * np.pi / 180)
+            self.WA *= utils.section(im, 50 * np.pi / 180)
 
     def raw_contrast(self, PSF_raw=None, display=False):
 

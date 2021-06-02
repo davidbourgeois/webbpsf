@@ -774,3 +774,24 @@ def to_griddedpsfmodel(HDUlist_or_filename=None, ext_data=0, ext_header=0):
 
     return model
 
+
+def circle_mask(im=None, rad=None):
+    """Create a circular aperture with radius rad centering in middle of your inuput file."""
+    xc = len(im) / 2
+    yc = len(im) / 2
+    x, y = np.shape(im)
+    newy, newx = np.mgrid[:y, :x]
+    circ = (newx - xc) ** 2 + (newy - yc) ** 2 < rad ** 2
+
+    return circ.astype('float')
+
+def section(im=None, angle=None):
+    """Generate an angular section"""
+    x, y = np.shape(im)
+    xc = len(im) / 2
+    yc = len(im) / 2
+    newy, newx = np.mgrid[:y, :x]
+    np.seterr(divide='ignore', invalid='ignore')
+    section = np.abs((newy - yc) / (newx - xc)) < np.arctan(angle)
+
+    return section.astype('float')
