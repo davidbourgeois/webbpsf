@@ -690,7 +690,8 @@ class CGI(RomanInstrument):
         self._filter = value
 
     def create_dm1(self, nbactuator):
-        self.dm1 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing= self.PUPIL_RADIUS/nbactuator, radius= self.PUPIL_RADIUS)
+        pitch = 2.2*self.PUPIL_RADIUS/nbactuator
+        self.dm1 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing=pitch, radius= self.PUPIL_RADIUS)
 
     @property
     def apodizer(self):
