@@ -603,11 +603,12 @@ class CGI(RomanInstrument):
         'CHARSPC_F890': ('IFS', 'F890', 'CHARSPC', 'CHARSPC_F890_BOWTIE', 'LS30D88'),
         'DISKSPC_F721': ('IMAGER', 'F721', 'DISKSPC', 'DISKSPC_F721_ANNULUS', 'LS30D88')}
 
-    def __init__(self, mode=None, pixelscale=None, fov_arcsec=None, apply_static_opd=False , nbactuator=48):
+    def __init__(self, mode=None, pixelscale=None, fov_arcsec=None, apply_static_opd=False, nbactuator = 48):
         super(CGI, self).__init__("CGI", pixelscale=pixelscale)
 
-        self.nbactuator = nbactuator
-        self.create_dm1(nbactuator)
+        self.nbactuator = nbactuator #REMOVE AFTER DEV input parameter
+        self.create_dm1(self.nbactuator)
+        self.create_dm2(self.nbactuator)
         
         self._detector_npixels = 1024
         self._detectors = {camera: 'placeholder' for camera in self.camera_list}
@@ -689,9 +690,13 @@ class CGI(RomanInstrument):
             raise ValueError("Instrument {0} doesn't have a filter called {1}.".format(self.name, value))
         self._filter = value
 
-    def create_dm1(self, nbactuator):
-        pitch = self.PUPIL_RADIUS/22 # 1/22 of beam_diameter millimeter Balasubramanian et al. 2016 & Trauger et al. 2016
-        self.dm1 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing=pitch, radius = self.PUPIL_RADIUS)
+    def create_dm1(self, nbactuator = 48):
+        pitch = self.PUPIL_RADIUS/22 # 1/22 of beam diameter Balasubramanian et al. 2016 & Trauger et al. 2012
+        self.dm1 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing = pitch, radius = self.PUPIL_RADIUS)
+
+    def create_dm2(self, nbactuator = 48):
+        pitch = self.PUPIL_RADIUS/22 # 1/22 of beam diameter Balasubramanian et al. 2016 & Trauger et al. 2012
+        self.dm2 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing = pitch, radius = self.PUPIL_RADIUS)
 
     @property
     def apodizer(self):
@@ -820,6 +825,9 @@ class CGI(RomanInstrument):
         # Add the dm1
         optsys.add_pupil(self.dm1, name="DM1")
 
+        # Add the dm2
+        optsys.add_pupil(self.dm2, name="DM2")
+
         # Add the FPM
         if (self._fpm!="OFF"):
             optsys.add_image(transmission=self._fpm_fname, name=self.fpm)
@@ -868,17 +876,19 @@ class CGI(RomanInstrument):
         result[0].header.set('PUPLDIAM', lyotstop_hdr['PUPLDIAM'],
                              comment='Lyot stop array size, incl padding.')
 
-    def raw_PSF(self):
-            PSF_raw = self.copy()
-            PSF_raw.fpm = "OFF"
-            PSF_raw.dm1.flatten()
-            return PSF_raw
+    def raw_coronagraph(self):
+            psf_raw = self.copy()
+            psf_raw.fpm = "OFF"
+            psf_raw.dm1.flatten()
+            psf_raw.dm2.flatten()
+            return psf_raw
 
     def working_area(self, im=None, inner_rad=3, outer_rad=9):
+        """Create a dark hole mask in function of select FPM"""
         # Get some header useful data
         #TODO get variable more higher
-        PSF_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
-        header = PSF_corona_fit[0].header
+        psf_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
+        header = psf_corona_fit[0].header
         pix_scale = header[11]
         lambdaD_scale = header[8]
         self.lambdaD_pix_scale = lambdaD_scale / pix_scale
@@ -886,37 +896,37 @@ class CGI(RomanInstrument):
         inner_rad *= self.lambdaD_pix_scale
         outer_rad *= self.lambdaD_pix_scale
 
-        IWA = utils.circle_mask(im=im, rad=inner_rad)
-        OWA = utils.circle_mask(im=im, rad=outer_rad)
-        self.WA = OWA - IWA
+        iwa = utils.circle_mask(im=im, rad=inner_rad)
+        owa = utils.circle_mask(im=im, rad=outer_rad)
+        self.WA = owa - iwa
         if (self._fpm!="DISKSPC_F721_ANNULUS"):
             self.WA *= utils.section(im, 50 * np.pi / 180)
 
-    def raw_contrast(self, PSF_raw=None, display=False):
+    def raw_contrast(self, raw_coronagraph=None, display=False):
 
         """Compute the constrast of coronagraphic PSF in working area (WA) betwin inner area (INA) and outer area (OWA)
         computed with their respectifs radius (inner_rad, outer_rad)  in lambda/Diameter units"""
 
-        if(PSF_raw==None):
-            PSF_raw = self.raw_PSF()
+        if(raw_coronagraph==None):
+            raw_coronagraph = self.raw_coronagraph()
 
-        PSF_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
-        PSF_raw_fit = PSF_raw.calc_psf(nlambda=1, fov_arcsec=1.6)
+        psf_corona_fit = self.calc_psf(nlambda=1, fov_arcsec=1.6)
+        psf_raw_fit = raw_coronagraph.calc_psf(nlambda=1, fov_arcsec=1.6)
 
-        PSF_corona_data = PSF_corona_fit[0].data
-        PSF_raw_data = PSF_raw_fit[0].data
+        psf_corona_data = psf_corona_fit[0].data
+        psf_raw_data = psf_raw_fit[0].data
 
-        self.working_area(im=PSF_corona_data)
+        self.working_area(im=psf_corona_data)
 
         # Compute instrumental contrast
-        contrast = PSF_corona_data * self.WA
-        norm = np.max(PSF_raw_data)
+        contrast = psf_corona_data * self.WA
+        norm = np.max(psf_raw_data)
         contrast_norm = (contrast / norm)
 
         if (display == True):
             # Get some header useful data
             #TODO get variable more higher
-            header = PSF_corona_fit[0].header
+            header = psf_corona_fit[0].header
             npix = header[3]
             pix_scale = header[11]
 
