@@ -691,7 +691,7 @@ class CGI(RomanInstrument):
         self._filter = value
 
     def create_dm1(self, nbactuator = 48):
-        pitch = self.PUPIL_RADIUS / 46.3  # 1/46.3 of beam diameter WFIRST_D-98922_Specification_for_OAPs_Initial_20191223(LRR047019) 2019
+        pitch = 2*self.PUPIL_RADIUS / 46.3  # 1/46.3 of beam diameter WFIRST_D-98922_Specification_for_OAPs_Initial_20191223(LRR047019) 2019
         pitch *= 48 / nbactuator #TODO discard after develop
         self.dm1 = poppy.dms.ContinuousDeformableMirror(dm_shape=(nbactuator, nbactuator), actuator_spacing = pitch, radius = self.PUPIL_RADIUS)
 
